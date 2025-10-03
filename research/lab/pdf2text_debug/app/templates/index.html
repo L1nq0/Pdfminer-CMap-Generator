@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF to Text Converter</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            padding-top: 2rem;
+        }
+        .container {
+            max-width: 800px;
+        }
+        .upload-area {
+            border: 2px dashed #dee2e6;
+            border-radius: 5px;
+            padding: 2rem;
+            text-align: center;
+            background: white;
+            margin-bottom: 1rem;
+        }
+        .upload-area:hover {
+            border-color: #0d6efd;
+        }
+        .btn-upload {
+            width: 100%;
+        }
+        .result-area {
+            display: none;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center mb-4">PDF to Text Converter</h1>
+        <div class="upload-area">
+            <h4>Upload PDF File</h4>
+            <p class="text-muted">Convert your PDF to plain text</p>
+            <form id="uploadForm" enctype="multipart/form-data">
+                <input type="file" class="form-control mb-3" id="pdfFile" name="file" accept=".pdf" required>
+                <button type="submit" class="btn btn-primary btn-upload">
+                    <span id="uploadText">Convert to Text</span>
+                    <span id="uploadSpinner" class="spinner-border spinner-border-sm" role="status" aria-hidden="true" style="display: none;"></span>
+                </button>
+            </form>
+        </div>
+        <div class="result-area card" id="resultArea">
+            <div class="card-header">
+                Conversion Result
+            </div>
+            <div class="card-body">
+                <a href="#" class="btn btn-success" id="downloadBtn">Download Text File</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const fileInput = document.getElementById('pdfFile');
+            const uploadBtn = document.querySelector('.btn-upload');
+            const uploadText = document.getElementById('uploadText');
+            const uploadSpinner = document.getElementById('uploadSpinner');
+            
+            if (fileInput.files.length === 0) {
+                alert('Please select a PDF file');
+                return;
+            }
+
+            // Show loading state
+            uploadText.textContent = 'Processing...';
+            uploadSpinner.style.display = 'inline-block';
+            uploadBtn.disabled = true;
+
+            try {
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(await response.text());
+                }
+
+                const blob = await response.blob();
+                const downloadUrl = URL.createObjectURL(blob);
+                
+                document.getElementById('downloadBtn').href = downloadUrl;
+                document.getElementById('downloadBtn').download = fileInput.files[0].name.replace('.pdf', '.txt');
+                document.getElementById('resultArea').style.display = 'block';
+            } catch (error) {
+                alert('Error: ' + error.message);
+            } finally {
+                uploadText.textContent = 'Convert to Text';
+                uploadSpinner.style.display = 'none';
+                uploadBtn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>

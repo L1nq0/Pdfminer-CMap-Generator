@@ -1,0 +1,9 @@
+version: '2.0'
+services:
+  pdf2text:
+    build: ./
+    container_name: pdf2text
+    ports:
+      - "11452:5000"
+    environment:
+      - ICQ_FLAG=flag{test}
