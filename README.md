@@ -60,9 +60,9 @@ options:
 ```
 
 ## Research
-[研究文章](https://github.com/L1nq0/Pdfminer-CMap-Generator/research/Pdfminer-Vulnerability-Research.md)
+[研究文章](https://github.com/L1nq0/Pdfminer-CMap-Generator/blob/master/research/Pdfminer-Vulnerability-Research.md)
 
-[复现环境](https://github.com/L1nq0/Pdfminer-CMap-Generator/research/lab/pdf2text_debug)
+[复现环境](https://github.com/L1nq0/Pdfminer-CMap-Generator/tree/master/research/lab/pdf2text_debug)
 
 ## References
 
