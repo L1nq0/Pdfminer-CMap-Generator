@@ -6,7 +6,8 @@ COPY ./start.sh /
 
 # Create app user
 RUN useradd -m app && \
-    chown app:app /app &&\
+    chown -R app:app /app &&\
+    mkdir -p /app/uploads && chown -R app:app /app/uploads && chmod 755 /app/uploads &&\
     touch /flag && chown app:app /flag
 
 # Set working directory
