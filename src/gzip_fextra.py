@@ -2,13 +2,11 @@ import struct, zlib, binascii, pickle
 from pdf_minimal import build_pdf_mini
 
 def gzip_fextra(args, output_file):
-    if args.payload == None:
-        print("Please provide '--payload' parameter")
-        exit()
     pdf_bytes = build_pdf_mini()
     payload_contents = gzip_payload(args.payload)
     content = build_gzip_header(pdf_bytes, payload_contents)
-    open(output_file, "wb").write(content)
+    with open(output_file, "wb") as f:
+        f.write(content)
 
 def build_gzip_header(extra: bytes, blocks: bytes) -> bytes:
     header = bytes([0x1f, 0x8b, 8, 0x04]) + struct.pack("<I", 0) + bytes([0, 255])

@@ -1,10 +1,6 @@
 import io, struct
 
 def build_trigger(args, output_file=None):
-    if args.encoding_path == None:
-        print("Please provide '--encoding-path' parameter")
-        exit()
-
     if output_file is None:
         output_file = "l1.pdf"
 
@@ -17,9 +13,7 @@ def build_trigger(args, output_file=None):
     elif trigger_type == 'traversal':
         content = build_trigger_pdf_traversal(args.encoding_path)
     else:
-        print(f"[!] Unknown trigger type: {trigger_type}")
-        print(f"[*] Available types: tounicode, encoding, traversal")
-        exit()
+        raise ValueError(f"Unknown trigger type: {trigger_type}")
 
     with open(output_file, "wb") as file:
         file.write(content)

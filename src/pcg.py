@@ -17,34 +17,47 @@ from pdf_trigger import build_trigger
 from banner import banner
 
 def validate(args):
-    result = validate_main(args)
+    return validate_main(args)
 
 def run(args):
-    pass
+    print("[!] The 'run' command is not yet implemented")
+    return 1
 
 def build(args):
     if args.type == 'gzip':
+        if not args.payload:
+            print("[!] Error: GZIP type requires '--payload' parameter")
+            print("[*] Example: python pcg.py build -t gzip -p \"whoami\"")
+            return 1
         output_file = args.output if args.output else "l1.pickle.gz"
-        try:
-            gzip_fextra(args, output_file)
-            print(f"[+] Generated: {output_file}")
-        except Exception as e:
-            print(f"[!] Error: {e}")
-            return ValueError(e)
+        builder_func = gzip_fextra
 
     elif args.type == 'pdf':
+        if not args.encoding_path:
+            print("[!] Error: PDF type requires '--encoding-path' parameter")
+            print("[*] Example: python pcg.py build -t pdf -ep \"/proc/self/cwd/uploads/l1\"")
+            return 1
         output_file = args.output if args.output else "l1.pdf"
-        try:
-            build_trigger(args, output_file)
-            print(f"[+] Generated: {output_file}")
-        except Exception as e:
-            print(f"[!] Error: {e}")
-            return ValueError(e)
+        builder_func = build_trigger
+
+    else:
+        print(f"[!] Error: Unknown type: {args.type}")
+        return 1
+    
+    try:
+        builder_func(args, output_file)
+        print(f"[+] Generated: {output_file}")
+        return 0
+    except Exception as e:
+        print(f"[!] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return 1
+
 
 def main(argv=None):
     class RichHelp(argparse.RawTextHelpFormatter):
         pass
-
     parser = argparse.ArgumentParser(
         description=banner().strip("\n"),
         formatter_class=RichHelp,
@@ -62,7 +75,6 @@ def main(argv=None):
     b.add_argument("-o", "--output", type=str, help="Custom output filename (default: l1.pickle.gz for GZIP, l1.pdf for PDF)")
     b.set_defaults(func=build)
     
-    
     # validate
     v = subparser.add_parser(name="validate", help="Validate file")
     v.add_argument('-f','--file', type=str, help="Plotgloy gzip-pdf file path")
@@ -70,6 +82,7 @@ def main(argv=None):
 
     # run
     r = subparser.add_parser(name="run", help="run remote")
+    r.set_defaults(func=run)
 
     if argv is None:
         argv = sys.argv[1:]
@@ -79,7 +92,8 @@ def main(argv=None):
         return 0
 
     args = parser.parse_args(argv)
-    return args.func(args)
+    exit_code = args.func(args)
+    return exit_code if exit_code is not None else 0
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
